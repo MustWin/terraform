@@ -15,13 +15,13 @@ import (
 // To run the tests against a remote Cassandra server, set the CASSANDRA_HOSTPORT,
 // CASSANDRA_USERNAME and CASSANDRA_PASSWORD environment variables.
 
-var testAccProviders map[string]terraform.ResourceProvider
-var testAccProvider *schema.Provider
+var testProviders map[string]terraform.ResourceProvider
+var testProvider *schema.Provider
 
 func init() {
-	testAccProvider = Provider().(*schema.Provider)
-	testAccProviders = map[string]terraform.ResourceProvider{
-		"cassandra": testAccProvider,
+	testProvider = Provider().(*schema.Provider)
+	testProviders = map[string]terraform.ResourceProvider{
+		"cassandra": testProvider,
 	}
 }
 

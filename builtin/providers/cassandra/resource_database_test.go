@@ -6,15 +6,21 @@ import (
 	"github.com/hashicorp/terraform/helper/resource"
 )
 
-func TestAccDatabase(t *testing.T) {
+func TestSimpleReplicationDatabase(t *testing.T) {
 	resource.Test(t, resource.TestCase{
-		Providers: testAccProviders,
+		Providers: testProviders,
 		Steps: []resource.TestStep{
 			resource.TestStep{
 				Config: testAccDatabaseConfig,
 				Check: resource.ComposeTestCheckFunc(
 					resource.TestCheckResourceAttr(
-						"influxdb_database.test", "name", "terraform-test",
+						"cassandra_keyspace.test", "name", "terraform-test",
+					),
+					resource.TestCheckResourceAttr(
+						"cassandra_keyspace.test", "durable_writes", "1",
+					),
+					resource.TestCheckResourceAttr(
+						"cassandra_keyspace.test", "replication_class", ReplicationStrategySimple,
 					),
 				),
 			},
@@ -24,8 +30,10 @@ func TestAccDatabase(t *testing.T) {
 
 var testAccDatabaseConfig = `
 
-resource "influxdb_database" "test" {
+resource "cassandra_keyspace" "test" {
     name = "terraform-test"
+    durable_writes = 1
+    replication_class = "` + ReplicationStrategySimple + `"
 }
 
 `

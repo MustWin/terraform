@@ -17,35 +17,36 @@ func ResourceKeyspace() *schema.Resource {
 		Create: CreateKeyspace,
 		Read:   ReadKeyspace,
 		Delete: DeleteKeyspace,
+		Update: UpdateKeyspace,
 
 		// https://docs.datastax.com/en/cql/3.1/cql/cql_reference/create_keyspace_r.html
 		Schema: map[string]*schema.Schema{
 			"name": &schema.Schema{
 				Type:     schema.TypeString,
 				Required: true,
-				ForceNew: true, // TODO: investigate what this does
+				ForceNew: false,
 			},
 			"durable_writes": &schema.Schema{
 				Type:     schema.TypeBool,
 				Required: true,
-				ForceNew: true,
+				ForceNew: false,
 			},
 			"replication_class": &schema.Schema{
 				Type:     schema.TypeString,
 				Required: true,
-				ForceNew: true,
+				ForceNew: false,
 			},
 			// Required if replication_class == "SimpleStrategy"
 			"replication_factor": &schema.Schema{
 				Type:     schema.TypeInt,
-				Required: false,
-				ForceNew: true,
+				Optional: true,
+				ForceNew: false, // TODO: add an alter command
 			},
 			// Required if replication_class == "NetworkTopologyStrategy"
 			"datacenters": &schema.Schema{
 				Type:     schema.TypeMap,
-				Required: false,
-				ForceNew: true,
+				Optional: true,
+				ForceNew: false,
 			},
 		},
 	}
@@ -115,6 +116,12 @@ func ReadKeyspace(d *schema.ResourceData, meta interface{}) error {
 	return nil
 }
 
+func UpdateKeyspace(d *schema.ResourceData, meta interface{}) error {
+	// TODO
+
+	return nil
+}
+
 func DeleteKeyspace(d *schema.ResourceData, meta interface{}) error {
 	err := ReadKeyspace(d, meta)
 	if err != nil {
@@ -124,7 +131,7 @@ func DeleteKeyspace(d *schema.ResourceData, meta interface{}) error {
 	conn := meta.(*gocql.Session)
 	name := d.Id()
 
-	if d.Id() {
+	if d.Id() != "" {
 		err := conn.Query("DROP KEYSPACE ?", name).Exec()
 		if err != nil {
 			return err
