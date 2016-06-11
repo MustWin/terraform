@@ -138,25 +138,25 @@ func DeleteKeyspace(d *schema.ResourceData, meta interface{}) error {
 
 func createKeyspaceQuery(d *schema.ResourceData) (string, []interface{}) {
 	name := d.Get("name").(string)
-	replicationCql, replicationParams := keyspaceQueryFactory(name, d)
-	query := "CREATE KEYSPACE IF NOT EXIST ? WITH REPLICATION = " + replicationCql + " AND DURABLE_WRITES = ?"
-	return query, replicationParams
+	query, queryParams := keyspaceQueryFactory("CREATE KEYSPACE IF NOT EXIST ?", name, d)
+	return query, queryParams
 
 }
 
 func alterKeyspaceQuery(d *schema.ResourceData) (string, []interface{}) {
 	name := d.Id()
-	replicationCql, replicationParams := keyspaceQueryFactory(name, d)
-	query := "ALTER KEYSPACE ? WITH REPLICATION = " + replicationCql + " AND DURABLE_WRITES = ?"
+	query, replicationParams := keyspaceQueryFactory("ALTER KEYSPACE ?", name, d)
 	return query, replicationParams
 }
 
-func keyspaceQueryFactory(name string, d *schema.ResourceData) (string, []interface{}) {
-	replicationStr := []string{}
+func keyspaceQueryFactory(queryStart string, name string, d *schema.ResourceData) (string, []interface{}) {
+	queryStr := []string{}
 	queryParams := make([]interface{}, 0)
 
+	queryStr = append(queryStr, queryStart)
 	queryParams = append(queryParams, name)
-	replicationStr = append(replicationStr, "{ 'class': ?")
+	queryStr = append(queryStr, " WITH REPLICATION = ")
+	queryStr = append(queryStr, "{ 'class': ?")
 
 	replicationClass := d.Get("replication_class").(string)
 	queryParams = append(queryParams, replicationClass)
@@ -164,18 +164,19 @@ func keyspaceQueryFactory(name string, d *schema.ResourceData) (string, []interf
 	switch replicationClass {
 	case ReplicationStrategySimple:
 		replicationFactor := d.Get("replication_factor").(string)
-		replicationStr = append(replicationStr, ", replication_factor: ? }")
+		queryStr = append(queryStr, ", replication_factor: ? }")
 		queryParams = append(queryParams, replicationFactor)
 	case ReplicationStrategyNetworkTopology:
 		datacenters := d.Get("datacenters").(map[string]interface{})
 		for datacenter, count := range datacenters {
-			replicationStr = append(replicationStr, ", ?: ?")
+			queryStr = append(queryStr, ", ?: ?")
 			queryParams = append(queryParams, datacenter)
 			queryParams = append(queryParams, count)
 		}
-		replicationStr = append(replicationStr, " }")
+		queryStr = append(queryStr, " }")
 	}
+	queryStr = append(queryStr, " AND DURABLE_WRITES = ?")
 	queryParams = append(queryParams, d.Get("durable_writes").(bool))
 
-	return strings.Join(replicationStr, ""), queryParams
+	return strings.Join(queryStr, ""), queryParams
 }
