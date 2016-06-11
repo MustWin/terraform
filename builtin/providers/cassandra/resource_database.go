@@ -5,6 +5,7 @@ import (
 
 	"github.com/gocql/gocql"
 	"github.com/hashicorp/terraform/helper/schema"
+	"strings"
 )
 
 const (
@@ -53,41 +54,19 @@ func ResourceKeyspace() *schema.Resource {
 }
 
 func CreateKeyspace(d *schema.ResourceData, meta interface{}) error {
-	conn := meta.(*gocql.Session)
-
-	name := d.Get("name").(string)
-	queryParams := make([]interface{}, 0)
-	queryParams = append(queryParams, name)
-	replicationStr := "{ 'class': ?"
 	replicationClass := d.Get("replication_class").(string)
 	if replicationClass != ReplicationStrategySimple && replicationClass != ReplicationStrategyNetworkTopology {
 		return fmt.Errorf("replication_class must be one of [%s, %s]", ReplicationStrategySimple, ReplicationStrategyNetworkTopology)
 	}
 
-	switch replicationClass {
-	case ReplicationStrategySimple:
-		queryParams = append(queryParams, replicationClass)
-		replicationFactor := d.Get("replication_factor").(string)
-		replicationStr += ", replication_factor: ? }"
-		queryParams = append(queryParams, replicationFactor)
-	case ReplicationStrategyNetworkTopology:
-		queryParams = append(queryParams, replicationClass)
-		datacenters := d.Get("datacenters").(map[string]interface{})
-		for datacenter, count := range datacenters {
-			replicationStr += ", ?: ?"
-			queryParams = append(queryParams, datacenter)
-			queryParams = append(queryParams, count)
-		}
-		replicationStr += " }"
-	}
-	queryParams = append(queryParams, d.Get("durable_writes").(bool))
+	conn := meta.(*gocql.Session)
+	queryStr, queryParams := CreateKeyspaceQuery(d)
 
-	err := conn.Query("CREATE KEYSPACE IF NOT EXIST ? WITH REPLICATION = " + replicationStr + " AND DURABLE_WRITES = ?").Exec()
+	err := conn.Query(queryStr, queryParams).Exec()
+
 	if err != nil {
 		return err
 	}
-
-	d.SetId(name)
 
 	return nil
 }
@@ -117,7 +96,18 @@ func ReadKeyspace(d *schema.ResourceData, meta interface{}) error {
 }
 
 func UpdateKeyspace(d *schema.ResourceData, meta interface{}) error {
-	// TODO
+	replicationClass := d.Get("replication_class").(string)
+	if replicationClass != ReplicationStrategySimple && replicationClass != ReplicationStrategyNetworkTopology {
+		return fmt.Errorf("replication_class must be one of [%s, %s]", ReplicationStrategySimple, ReplicationStrategyNetworkTopology)
+	}
+
+	conn := meta.(*gocql.Session)
+	queryStr, queryParams := CreateKeyspaceQuery(d)
+	err := conn.Query(queryStr, queryParams).Exec()
+
+	if err != nil {
+		return err
+	}
 
 	return nil
 }
@@ -141,4 +131,47 @@ func DeleteKeyspace(d *schema.ResourceData, meta interface{}) error {
 	}
 
 	return nil
+}
+
+func CreateKeyspaceQuery(d *schema.ResourceData) (string, []interface{}) {
+	replicationCql, replicationParams := KeyspaceQueryFactory(d)
+	query := "CREATE KEYSPACE IF NOT EXIST ? WITH REPLICATION = " + replicationCql + " AND DURABLE_WRITES = ?"
+	return query, replicationParams
+
+}
+
+func AlterKeyspaceQuery(d *schema.ResourceData) (string, []interface{}) {
+	replicationCql, replicationParams := KeyspaceQueryFactory(d)
+	query := "ALTER KEYSPACE ? WITH REPLICATION = " + replicationCql + " AND DURABLE_WRITES = ?"
+	return query, replicationParams
+}
+
+func KeyspaceQueryFactory(d *schema.ResourceData) (string, []interface{}) {
+	name := d.Id()
+	replicationStr := []string{}
+	queryParams := make([]interface{}, 0)
+
+	queryParams = append(queryParams, name)
+	replicationStr = append(replicationStr, "{ 'class': ?")
+
+	replicationClass := d.Get("replication_class").(string)
+	queryParams = append(queryParams, replicationClass)
+
+	switch replicationClass {
+	case ReplicationStrategySimple:
+		replicationFactor := d.Get("replication_factor").(string)
+		replicationStr = append(replicationStr, ", replication_factor: ? }")
+		queryParams = append(queryParams, replicationFactor)
+	case ReplicationStrategyNetworkTopology:
+		datacenters := d.Get("datacenters").(map[string]interface{})
+		for datacenter, count := range datacenters {
+			replicationStr = append(replicationStr, ", ?: ?")
+			queryParams = append(queryParams, datacenter)
+			queryParams = append(queryParams, count)
+		}
+		replicationStr = append(replicationStr, " }")
+	}
+	queryParams = append(queryParams, d.Get("durable_writes").(bool))
+
+	return strings.Join(replicationStr, ""), queryParams
 }
