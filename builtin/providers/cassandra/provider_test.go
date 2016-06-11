@@ -1,6 +1,7 @@
 package cassandra
 
 import (
+	"os"
 	"testing"
 
 	"github.com/hashicorp/terraform/helper/schema"
@@ -15,13 +16,13 @@ import (
 // To run the tests against a remote Cassandra server, set the CASSANDRA_HOSTPORT,
 // CASSANDRA_USERNAME and CASSANDRA_PASSWORD environment variables.
 
-var testProviders map[string]terraform.ResourceProvider
-var testProvider *schema.Provider
+var testAccProviders map[string]terraform.ResourceProvider
+var testAccProvider *schema.Provider
 
 func init() {
-	testProvider = Provider().(*schema.Provider)
-	testProviders = map[string]terraform.ResourceProvider{
-		"cassandra": testProvider,
+	testAccProvider = Provider().(*schema.Provider)
+	testAccProviders = map[string]terraform.ResourceProvider{
+		"cassandra": testAccProvider,
 	}
 }
 
@@ -33,4 +34,10 @@ func TestProvider(t *testing.T) {
 
 func TestProvider_impl(t *testing.T) {
 	var _ terraform.ResourceProvider = Provider()
+}
+
+func testAccPreCheck(t *testing.T) {
+	if v := os.Getenv("CASSANDRA_HOSTPORT"); v == "" {
+		t.Fatal("CASSANDRA_HOSTPORT must be set for cassandra acceptance tests")
+	}
 }

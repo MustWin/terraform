@@ -57,6 +57,7 @@ func Configure(d *schema.ResourceData) (interface{}, error) {
 	cluster := gocql.NewCluster(hostPort)
 	cluster.ProtoVersion = 1
 	cluster.Keyspace = "system"
+
 	session, err := cluster.CreateSession()
 	if err != nil {
 		return nil, err
