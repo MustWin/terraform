@@ -60,13 +60,16 @@ func CreateKeyspace(d *schema.ResourceData, meta interface{}) error {
 	}
 
 	conn := meta.(*gocql.Session)
-	queryStr, queryParams := CreateKeyspaceQuery(d)
+	name := d.Get("name").(string)
+	queryStr, queryParams := createKeyspaceQuery(d)
 
 	err := conn.Query(queryStr, queryParams).Exec()
 
 	if err != nil {
 		return err
 	}
+
+	d.SetId(name)
 
 	return nil
 }
@@ -102,7 +105,7 @@ func UpdateKeyspace(d *schema.ResourceData, meta interface{}) error {
 	}
 
 	conn := meta.(*gocql.Session)
-	queryStr, queryParams := CreateKeyspaceQuery(d)
+	queryStr, queryParams := alterKeyspaceQuery(d)
 	err := conn.Query(queryStr, queryParams).Exec()
 
 	if err != nil {
@@ -133,21 +136,22 @@ func DeleteKeyspace(d *schema.ResourceData, meta interface{}) error {
 	return nil
 }
 
-func CreateKeyspaceQuery(d *schema.ResourceData) (string, []interface{}) {
-	replicationCql, replicationParams := KeyspaceQueryFactory(d)
+func createKeyspaceQuery(d *schema.ResourceData) (string, []interface{}) {
+	name := d.Get("name").(string)
+	replicationCql, replicationParams := keyspaceQueryFactory(name, d)
 	query := "CREATE KEYSPACE IF NOT EXIST ? WITH REPLICATION = " + replicationCql + " AND DURABLE_WRITES = ?"
 	return query, replicationParams
 
 }
 
-func AlterKeyspaceQuery(d *schema.ResourceData) (string, []interface{}) {
-	replicationCql, replicationParams := KeyspaceQueryFactory(d)
+func alterKeyspaceQuery(d *schema.ResourceData) (string, []interface{}) {
+	name := d.Id()
+	replicationCql, replicationParams := keyspaceQueryFactory(name, d)
 	query := "ALTER KEYSPACE ? WITH REPLICATION = " + replicationCql + " AND DURABLE_WRITES = ?"
 	return query, replicationParams
 }
 
-func KeyspaceQueryFactory(d *schema.ResourceData) (string, []interface{}) {
-	name := d.Id()
+func keyspaceQueryFactory(name string, d *schema.ResourceData) (string, []interface{}) {
 	replicationStr := []string{}
 	queryParams := make([]interface{}, 0)
 
