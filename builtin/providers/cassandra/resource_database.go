@@ -138,15 +138,13 @@ func DeleteKeyspace(d *schema.ResourceData, meta interface{}) error {
 
 func createKeyspaceQuery(d *schema.ResourceData) (string, []interface{}) {
 	name := d.Get("name").(string)
-	query, queryParams := keyspaceQueryFactory("CREATE KEYSPACE IF NOT EXIST ?", name, d)
-	return query, queryParams
+	return keyspaceQueryFactory("CREATE KEYSPACE IF NOT EXIST ?", name, d)
 
 }
 
 func alterKeyspaceQuery(d *schema.ResourceData) (string, []interface{}) {
 	name := d.Id()
-	query, replicationParams := keyspaceQueryFactory("ALTER KEYSPACE ?", name, d)
-	return query, replicationParams
+	return keyspaceQueryFactory("ALTER KEYSPACE ?", name, d)
 }
 
 func keyspaceQueryFactory(queryStart string, name string, d *schema.ResourceData) (string, []interface{}) {
