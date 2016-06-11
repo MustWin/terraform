@@ -5,9 +5,9 @@ import (
 	"regexp"
 	"strings"
 
+	"github.com/gocql/gocql"
 	"github.com/hashicorp/terraform/helper/schema"
 	"github.com/hashicorp/terraform/terraform"
-	"github.com/gocql/gocql"
 )
 
 var quoteReplacer = strings.NewReplacer(`"`, `\"`)
