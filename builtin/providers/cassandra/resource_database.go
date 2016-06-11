@@ -5,7 +5,6 @@ import (
 
 	"github.com/gocql/gocql"
 	"github.com/hashicorp/terraform/helper/schema"
-	"strings"
 )
 
 const (
