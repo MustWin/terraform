@@ -98,13 +98,10 @@ func ReadKeyspace(d *schema.ResourceData, meta interface{}) error {
 }
 
 func UpdateKeyspace(d *schema.ResourceData, meta interface{}) error {
-	fmt.Println("Updating Keyspace", d.Id())
 	replicationClass := d.Get("replication_class").(string)
 	if replicationClass != ReplicationStrategySimple && replicationClass != ReplicationStrategyNetworkTopology {
 		return fmt.Errorf("replication_class must be one of [%s, %s]", ReplicationStrategySimple, ReplicationStrategyNetworkTopology)
 	}
-
-	fmt.Println("Valid replicationClass", replicationClass)
 
 	conn := meta.(*gocql.Session)
 	queryStr := alterKeyspaceQuery(d)
@@ -113,8 +110,6 @@ func UpdateKeyspace(d *schema.ResourceData, meta interface{}) error {
 	if err != nil {
 		return err
 	}
-
-	fmt.Println("Did not error")
 
 	return nil
 }

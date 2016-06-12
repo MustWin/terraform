@@ -9,6 +9,7 @@ import (
 	"github.com/gocql/gocql"
 	"github.com/hashicorp/terraform/helper/resource"
 	"github.com/hashicorp/terraform/terraform"
+	"time"
 )
 
 func TestSimpleReplicationDatabase(t *testing.T) {
@@ -20,17 +21,17 @@ func TestSimpleReplicationDatabase(t *testing.T) {
 		CheckDestroy: testAccCheckKeyspaceDestroy,
 		Steps: []resource.TestStep{
 			resource.TestStep{
-				Config: testAccDatabaseConfig,
+				Config: testAccSimpleConfig,
 				Check: resource.ComposeTestCheckFunc(
-					checkKeyspaceExists("terraformTest", &keyspaceMeta),
+					checkKeyspaceExists(testAccSimpleConfigName, &keyspaceMeta),
 					checkKeyspaceProperties(&keyspaceMeta, gocql.KeyspaceMetadata{
-						Name:            "terraformTest",
+						Name:            testAccSimpleConfigName,
 						DurableWrites:   true,
 						StrategyClass:   ReplicationStrategySimple,
 						StrategyOptions: map[string]interface{}{"replication_factor": "2"},
 					}),
 					resource.TestCheckResourceAttr(
-						"cassandra_keyspace.test", "name", "terraformTest",
+						"cassandra_keyspace.test", "name", testAccSimpleConfigName,
 					),
 					resource.TestCheckResourceAttr(
 						"cassandra_keyspace.test", "durable_writes", "true", // TODO: This should fail, why doesn't it?
@@ -53,11 +54,11 @@ func TestAlterNetworkReplicationDatabase(t *testing.T) {
 		CheckDestroy: testAccCheckKeyspaceDestroy,
 		Steps: []resource.TestStep{
 			resource.TestStep{
-				Config: testAccDatabaseConfig,
+				Config: testAccSimpleConfig,
 				Check: resource.ComposeTestCheckFunc(
-					checkKeyspaceExists("terraformTest", &keyspaceMeta),
+					checkKeyspaceExists(testAccSimpleConfigName, &keyspaceMeta),
 					checkKeyspaceProperties(&keyspaceMeta, gocql.KeyspaceMetadata{
-						Name:            "terraformTest",
+						Name:            testAccSimpleConfigName,
 						DurableWrites:   true,
 						StrategyClass:   ReplicationStrategySimple,
 						StrategyOptions: map[string]interface{}{"replication_factor": "2"},
@@ -65,14 +66,14 @@ func TestAlterNetworkReplicationDatabase(t *testing.T) {
 				),
 			},
 			resource.TestStep{
-				Config: testNetworkTopologyConfig,
+				Config: testSimpleConfigTwo,
 				Check: resource.ComposeTestCheckFunc(
-					checkKeyspaceExists("terraformTest", &keyspaceMeta),
+					checkKeyspaceExists(testAccSimpleConfigName, &keyspaceMeta),
 					checkKeyspaceProperties(&keyspaceMeta, gocql.KeyspaceMetadata{
-						Name:            "terraformTest",
+						Name:            testAccSimpleConfigName,
 						DurableWrites:   false,
-						StrategyClass:   ReplicationStrategyNetworkTopology,
-						StrategyOptions: map[string]interface{}{"datacenters": "{ 'DC0' : 1, 'DC1' : 2 }"},
+						StrategyClass:   ReplicationStrategySimple,
+						StrategyOptions: map[string]interface{}{"replication_factor": "3"},
 					}),
 				),
 			},
@@ -102,18 +103,12 @@ func checkKeyspaceExists(name string, keyspaceMeta *gocql.KeyspaceMetadata) reso
 
 func checkKeyspaceProperties(actualMeta *gocql.KeyspaceMetadata, expectedMeta gocql.KeyspaceMetadata) resource.TestCheckFunc {
 	return func(s *terraform.State) error {
-		fmt.Println("ExpectedName: ", expectedMeta.Name)
-		fmt.Println("ActualName: ", actualMeta.Name)
 		if expectedMeta.Name != "" && actualMeta.Name != expectedMeta.Name {
 			return fmt.Errorf("Keyspace name %s does not match expected %s", actualMeta.Name, expectedMeta.Name)
 		}
-		fmt.Println("ExpectedDurableWrites: ", expectedMeta.DurableWrites)
-		fmt.Println("ActualDurableWrites: ", actualMeta.DurableWrites)
 		if expectedMeta.DurableWrites != actualMeta.DurableWrites {
 			return fmt.Errorf("Durable writes %s does not match expected %s", actualMeta.DurableWrites, expectedMeta.DurableWrites)
 		}
-		fmt.Println("ExpectedStrategyClass: ", expectedMeta.StrategyClass)
-		fmt.Println("ActualStrategyClass: ", actualMeta.StrategyClass)
 		// We use Contains, because the actual class looks more like this: 'org.apache.cassandra.locator.SimpleStrategy'
 		if expectedMeta.StrategyClass != "" && !strings.Contains(actualMeta.StrategyClass, expectedMeta.StrategyClass) {
 			return fmt.Errorf("StrategyClass %s does not match expected %s", actualMeta.StrategyClass, expectedMeta.StrategyClass)
@@ -130,14 +125,12 @@ func checkKeyspaceProperties(actualMeta *gocql.KeyspaceMetadata, expectedMeta go
 			}
 		}
 
-		fmt.Println("Did not return an error when checkKeyspaceProperties")
-
 		return nil
 	}
 }
 
 func testAccCheckKeyspaceDestroy(s *terraform.State) error {
-	fmt.Println("checkingKeyspaceDestroy")
+	time.Sleep(time.Second * time.Duration(2)) // JANK
 
 	for _, rs := range s.RootModule().Resources {
 		if rs.Type != "cassandra_keyspace" {
@@ -146,17 +139,16 @@ func testAccCheckKeyspaceDestroy(s *terraform.State) error {
 
 		data, err := keyspaceExists(rs.Primary.ID)
 
-		if err == nil && data.Name != "" {
+		fmt.Printf("%v\n", data)
+		// Gocql returns meta data regardless of existence
+		if err == nil && data.StrategyOptions != nil && len(data.StrategyOptions) != 0 {
 			return fmt.Errorf("Keyspace %s still exists", rs.Primary.ID)
 		}
 
 		if err != nil {
-			fmt.Println("---------------")
-			fmt.Println(err)
-		}
-
-		if !strings.Contains(err.Error(), "not found") {
-			return fmt.Errorf("Unexpected error: %s", err)
+			if !strings.Contains(err.Error(), "not found") {
+				return fmt.Errorf("Unexpected error: %s", err)
+			}
 		}
 	}
 
@@ -164,23 +156,35 @@ func testAccCheckKeyspaceDestroy(s *terraform.State) error {
 }
 
 const (
-	testAccDatabaseConfig = `
+	// FYI, gocql and Cassandra 3.5 react oddly to mixed-case keyspace names
+	testAccSimpleConfigName = "terraformtest"
+	testAccSimpleConfig     = `
 
 resource "cassandra_keyspace" "test" {
-    name = "terraformTest"
+    name = "` + testAccSimpleConfigName + `"
     durable_writes = true
     replication_class = "` + ReplicationStrategySimple + `"
     replication_factor = 2
 }
 
 `
+	testSimpleConfigTwo = `
+
+resource "cassandra_keyspace" "test" {
+    name = "` + testAccSimpleConfigName + `"
+    durable_writes = false
+    replication_class = "` + ReplicationStrategySimple + `"
+    replication_factor = 3
+}
+
+`
 	testNetworkTopologyConfig = `
 
 resource "cassandra_keyspace" "test" {
-    name = "terraformTest"
+    name = "` + testAccSimpleConfigName + `"
     durable_writes = false
     replication_class = "` + ReplicationStrategyNetworkTopology + `"
-    replication_factor = 3
+    datacenters = { 'DC0' : 1, 'DC1' : 2 }
 }
 
 `
