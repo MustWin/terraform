@@ -77,7 +77,7 @@ func ReadKeyspace(d *schema.ResourceData, meta interface{}) error {
 	conn := meta.(*gocql.Session)
 	name := d.Id()
 
-	iter := conn.Query("SELECT keyspace_name FROM system.schema_keyspaces", name).Iter()
+	iter := conn.Query("SELECT keyspace_name FROM system_schema.keyspaces", name).Iter()
 	var keyspace string
 	found := false
 	for iter.Scan(&keyspace) {
@@ -124,7 +124,7 @@ func DeleteKeyspace(d *schema.ResourceData, meta interface{}) error {
 	name := d.Id()
 
 	if d.Id() != "" {
-		err := conn.Query("DROP KEYSPACE ?", name).Exec()
+		err := conn.Query(fmt.Sprintf("DROP KEYSPACE %s", name)).Exec()
 		if err != nil {
 			return err
 		}
@@ -137,12 +137,12 @@ func DeleteKeyspace(d *schema.ResourceData, meta interface{}) error {
 
 func createKeyspaceQuery(d *schema.ResourceData) string {
 	name := d.Get("name").(string)
-	return keyspaceQueryFactory(fmt.Sprintf("CREATE KEYSPACE IF NOT EXISTS \"%s\"", name), d)
+	return keyspaceQueryFactory(fmt.Sprintf("CREATE KEYSPACE IF NOT EXISTS %s", name), d)
 }
 
 func alterKeyspaceQuery(d *schema.ResourceData) string {
 	name := d.Id()
-	return keyspaceQueryFactory(fmt.Sprintf("ALTER KEYSPACE \"%s\"", name), d)
+	return keyspaceQueryFactory(fmt.Sprintf("ALTER KEYSPACE %s", name), d)
 }
 
 func keyspaceQueryFactory(queryStart string, d *schema.ResourceData) string {
