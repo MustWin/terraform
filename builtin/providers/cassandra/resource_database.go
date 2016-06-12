@@ -77,7 +77,7 @@ func ReadKeyspace(d *schema.ResourceData, meta interface{}) error {
 	conn := meta.(*gocql.Session)
 	name := d.Id()
 
-	iter := conn.Query("SELECT keyspace_name FROM system_schema.keyspaces", name).Iter()
+	iter := conn.Query("SELECT keyspace_name FROM system_schema.keyspaces").Iter()
 	var keyspace string
 	found := false
 	for iter.Scan(&keyspace) {
