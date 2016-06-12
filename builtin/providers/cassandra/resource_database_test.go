@@ -43,27 +43,43 @@ func TestSimpleReplicationDatabase(t *testing.T) {
 		},
 	})
 }
-/*
+
 func TestAlterNetworkReplicationDatabase(t *testing.T) {
-	var keyspaceDesc string
+	var keyspaceMeta gocql.KeyspaceMetadata
 
 	resource.Test(t, resource.TestCase{
-		PreCheck:  func() { testAccPreCheck(t) },
-		Providers: testAccProviders,
+		PreCheck:     func() { testAccPreCheck(t) },
+		Providers:    testAccProviders,
+		CheckDestroy: testAccCheckKeyspaceDestroy,
 		Steps: []resource.TestStep{
 			resource.TestStep{
 				Config: testAccDatabaseConfig,
 				Check: resource.ComposeTestCheckFunc(
-					checkKeyspaceExists("terraformTest", &keyspaceDesc),
-					resource.TestCheckResourceAttr(
-						"cassandra_keyspace.test", "replication_class", ReplicationStrategyNetworkTopology,
-					),
+					checkKeyspaceExists("terraformTest", &keyspaceMeta),
+					checkKeyspaceProperties(&keyspaceMeta, gocql.KeyspaceMetadata{
+						Name:            "terraformTest",
+						DurableWrites:   true,
+						StrategyClass:   ReplicationStrategySimple,
+						StrategyOptions: map[string]interface{}{"replication_factor": "2"},
+					}),
+				),
+			},
+			resource.TestStep{
+				Config: testNetworkTopologyConfig,
+				Check: resource.ComposeTestCheckFunc(
+					checkKeyspaceExists("terraformTest", &keyspaceMeta),
+					checkKeyspaceProperties(&keyspaceMeta, gocql.KeyspaceMetadata{
+						Name:            "terraformTest",
+						DurableWrites:   false,
+						StrategyClass:   ReplicationStrategyNetworkTopology,
+						StrategyOptions: map[string]interface{}{"datacenters": "{ 'DC0' : 1, 'DC1' : 2 }"},
+					}),
 				),
 			},
 		},
 	})
 }
-*/
+
 func keyspaceExists(name string) (*gocql.KeyspaceMetadata, error) {
 	conn := testAccProvider.Meta().(*gocql.Session)
 	return conn.KeyspaceMetadata(name)
@@ -91,9 +107,13 @@ func checkKeyspaceProperties(actualMeta *gocql.KeyspaceMetadata, expectedMeta go
 		if expectedMeta.Name != "" && actualMeta.Name != expectedMeta.Name {
 			return fmt.Errorf("Keyspace name %s does not match expected %s", actualMeta.Name, expectedMeta.Name)
 		}
+		fmt.Println("ExpectedDurableWrites: ", expectedMeta.DurableWrites)
+		fmt.Println("ActualDurableWrites: ", actualMeta.DurableWrites)
 		if expectedMeta.DurableWrites != actualMeta.DurableWrites {
 			return fmt.Errorf("Durable writes %s does not match expected %s", actualMeta.DurableWrites, expectedMeta.DurableWrites)
 		}
+		fmt.Println("ExpectedStrategyClass: ", expectedMeta.StrategyClass)
+		fmt.Println("ActualStrategyClass: ", actualMeta.StrategyClass)
 		// We use Contains, because the actual class looks more like this: 'org.apache.cassandra.locator.SimpleStrategy'
 		if expectedMeta.StrategyClass != "" && !strings.Contains(actualMeta.StrategyClass, expectedMeta.StrategyClass) {
 			return fmt.Errorf("StrategyClass %s does not match expected %s", actualMeta.StrategyClass, expectedMeta.StrategyClass)
@@ -110,11 +130,15 @@ func checkKeyspaceProperties(actualMeta *gocql.KeyspaceMetadata, expectedMeta go
 			}
 		}
 
+		fmt.Println("Did not return an error when checkKeyspaceProperties")
+
 		return nil
 	}
 }
 
 func testAccCheckKeyspaceDestroy(s *terraform.State) error {
+	fmt.Println("checkingKeyspaceDestroy")
+
 	for _, rs := range s.RootModule().Resources {
 		if rs.Type != "cassandra_keyspace" {
 			continue
@@ -144,20 +168,20 @@ const (
 
 resource "cassandra_keyspace" "test" {
     name = "terraformTest"
-    durable_writes = 1
+    durable_writes = true
     replication_class = "` + ReplicationStrategySimple + `"
     replication_factor = 2
 }
 
 `
 	testNetworkTopologyConfig = `
+
 resource "cassandra_keyspace" "test" {
     name = "terraformTest"
-    durable_writes = 1
+    durable_writes = false
     replication_class = "` + ReplicationStrategyNetworkTopology + `"
-    datacenters = { "DC0" : 1, "DC1" : 2 }
+    replication_factor = 3
 }
 
 `
-
 )
