@@ -106,13 +106,10 @@ func TestAlterNetworkReplicationKeyspace(t *testing.T) {
 				Check: resource.ComposeTestCheckFunc(
 					checkKeyspaceExists(testAccSimpleConfigName, &keyspaceMeta),
 					checkKeyspaceProperties(&keyspaceMeta, gocql.KeyspaceMetadata{
-						Name:          testAccSimpleConfigName,
-						DurableWrites: false,
-						StrategyClass: ReplicationStrategyNetworkTopology,
-						StrategyOptions: map[string]interface{}{"datacenters": map[string]int{
-							"dc1": 2,
-							"dc2": 1,
-						}},
+						Name:            testAccSimpleConfigName,
+						DurableWrites:   false,
+						StrategyClass:   ReplicationStrategyNetworkTopology,
+						StrategyOptions: map[string]interface{}{"dc1": "2", "dc2": "1"},
 					}),
 				),
 			},
@@ -153,9 +150,11 @@ func checkKeyspaceProperties(actualMeta *gocql.KeyspaceMetadata, expectedMeta go
 			return fmt.Errorf("StrategyClass %s does not match expected %s", actualMeta.StrategyClass, expectedMeta.StrategyClass)
 		}
 		for key, _ := range expectedMeta.StrategyOptions {
+			fmt.Println("logging StrategyOptions", key)
 			if key == "class" { // Already checked
 				continue
 			}
+			fmt.Println("logging value", expectedMeta.StrategyOptions[key], actualMeta.StrategyOptions[key])
 			if expectedMeta.StrategyOptions[key] != actualMeta.StrategyOptions[key] {
 				return fmt.Errorf("Strategy options %v did not match expected string: `%v`",
 					actualMeta.StrategyOptions[key],
