@@ -54,15 +54,15 @@ func ResourceKeyspace() *schema.Resource {
 }
 
 func CreateKeyspace(d *schema.ResourceData, meta interface{}) error {
-	replicationClass := d.Get("replication_class").(string)
-	if replicationClass != ReplicationStrategySimple && replicationClass != ReplicationStrategyNetworkTopology {
-		return fmt.Errorf("replication_class must be one of [%s, %s]", ReplicationStrategySimple, ReplicationStrategyNetworkTopology)
+	err := replicationValidations(d)
+	if err != nil {
+		return nil
 	}
 
 	conn := meta.(*gocql.Session)
 	name := d.Get("name").(string)
 	queryStr := createKeyspaceQuery(d)
-	err := conn.Query(queryStr).Exec()
+	err = conn.Query(queryStr).Exec()
 
 	if err != nil {
 		return err
@@ -98,14 +98,14 @@ func ReadKeyspace(d *schema.ResourceData, meta interface{}) error {
 }
 
 func UpdateKeyspace(d *schema.ResourceData, meta interface{}) error {
-	replicationClass := d.Get("replication_class").(string)
-	if replicationClass != ReplicationStrategySimple && replicationClass != ReplicationStrategyNetworkTopology {
-		return fmt.Errorf("replication_class must be one of [%s, %s]", ReplicationStrategySimple, ReplicationStrategyNetworkTopology)
+	err := replicationValidations(d)
+	if err != nil {
+		return nil
 	}
 
 	conn := meta.(*gocql.Session)
 	queryStr := alterKeyspaceQuery(d)
-	err := conn.Query(queryStr).Exec()
+	err = conn.Query(queryStr).Exec()
 
 	if err != nil {
 		return err
@@ -172,4 +172,17 @@ func keyspaceQueryFactory(queryStart string, d *schema.ResourceData) string {
 	//queryParams = append(queryParams, d.Get("durable_writes").(bool))
 
 	return strings.Join(queryStr, "") // , queryParams
+}
+
+func replicationValidations(d *schema.ResourceData) error {
+	replicationClass := d.Get("replication_class").(string)
+	if replicationClass != ReplicationStrategySimple && replicationClass != ReplicationStrategyNetworkTopology {
+		return fmt.Errorf("replication_class must be one of [%s, %s]", ReplicationStrategySimple, ReplicationStrategyNetworkTopology)
+	} else if replicationClass == ReplicationStrategySimple && d.Get("replication_factor") == nil {
+		return fmt.Errorf("replication_class of %s must set replication_factor", ReplicationStrategySimple)
+	} else if replicationClass == ReplicationStrategyNetworkTopology && d.Get("datacenters") == nil {
+		return fmt.Errorf("replication_class of %s require a list of datacenters", ReplicationStrategyNetworkTopology)
+	}
+
+	return nil
 }
