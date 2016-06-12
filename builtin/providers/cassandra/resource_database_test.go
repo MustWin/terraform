@@ -24,7 +24,7 @@ func TestSimpleReplicationDatabase(t *testing.T) {
 					checkKeyspaceExists("terraform-test", &keyspaceDesc),
 					checkKeyspaceProperties(keyspaceDesc, "'replication_factor': '2'"),
 					resource.TestCheckResourceAttr(
-						"cassandra_keyspace.test", "name", "terraform-test",
+						"cassandra_keyspace.test", "name", "terraformTest",
 					),
 					resource.TestCheckResourceAttr(
 						"cassandra_keyspace.test", "durable_writes", "5", // TODO: This should fail, why doesn't it?
@@ -67,7 +67,7 @@ const (
 	testAccDatabaseConfig = `
 
 resource "cassandra_keyspace" "test" {
-    name = "terraform-test"
+    name = "terraformTest"
     durable_writes = 1
     replication_class = "` + ReplicationStrategySimple + `"
     replication_factor = 2

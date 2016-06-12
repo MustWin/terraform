@@ -61,8 +61,8 @@ func CreateKeyspace(d *schema.ResourceData, meta interface{}) error {
 
 	conn := meta.(*gocql.Session)
 	name := d.Get("name").(string)
-	queryStr, queryParams := createKeyspaceQuery(d)
-	err := conn.Query(queryStr, queryParams).Exec()
+	queryStr := createKeyspaceQuery(d)
+	err := conn.Query(queryStr).Exec()
 
 	if err != nil {
 		return err
@@ -104,8 +104,8 @@ func UpdateKeyspace(d *schema.ResourceData, meta interface{}) error {
 	}
 
 	conn := meta.(*gocql.Session)
-	queryStr, queryParams := alterKeyspaceQuery(d)
-	err := conn.Query(queryStr, queryParams).Exec()
+	queryStr := alterKeyspaceQuery(d)
+	err := conn.Query(queryStr).Exec()
 
 	if err != nil {
 		return err
@@ -135,45 +135,41 @@ func DeleteKeyspace(d *schema.ResourceData, meta interface{}) error {
 	return nil
 }
 
-func createKeyspaceQuery(d *schema.ResourceData) (string, []interface{}) {
+func createKeyspaceQuery(d *schema.ResourceData) string {
 	name := d.Get("name").(string)
-	return keyspaceQueryFactory("CREATE KEYSPACE IF NOT EXISTS ?", name, d)
-
+	return keyspaceQueryFactory(fmt.Sprintf("CREATE KEYSPACE IF NOT EXISTS \"%s\"", name), d)
 }
 
-func alterKeyspaceQuery(d *schema.ResourceData) (string, []interface{}) {
+func alterKeyspaceQuery(d *schema.ResourceData) string {
 	name := d.Id()
-	return keyspaceQueryFactory("ALTER KEYSPACE ?", name, d)
+	return keyspaceQueryFactory(fmt.Sprintf("ALTER KEYSPACE \"%s\"", name), d)
 }
 
-func keyspaceQueryFactory(queryStart string, name string, d *schema.ResourceData) (string, []interface{}) {
+func keyspaceQueryFactory(queryStart string, d *schema.ResourceData) string {
 	queryStr := []string{}
-	queryParams := make([]interface{}, 0)
+	// queryParams := make([]interface{}, 0)
 
 	queryStr = append(queryStr, queryStart)
-	queryParams = append(queryParams, name)
 	queryStr = append(queryStr, " WITH REPLICATION = ")
-	queryStr = append(queryStr, "{ 'class': ?")
 
 	replicationClass := d.Get("replication_class").(string)
-	queryParams = append(queryParams, replicationClass)
+	queryStr = append(queryStr, fmt.Sprintf("{ 'class' : '%s'", replicationClass))
+	// queryParams = append(queryParams, replicationClass)
 
 	switch replicationClass {
 	case ReplicationStrategySimple:
 		replicationFactor := d.Get("replication_factor").(int)
-		queryStr = append(queryStr, ", replication_factor: ? }")
-		queryParams = append(queryParams, replicationFactor)
+		queryStr = append(queryStr, fmt.Sprintf(", 'replication_factor' : %d }", replicationFactor))
+		//queryParams = append(queryParams, replicationFactor)
 	case ReplicationStrategyNetworkTopology:
 		datacenters := d.Get("datacenters").(map[string]interface{})
 		for datacenter, count := range datacenters {
-			queryStr = append(queryStr, ", ?: ?")
-			queryParams = append(queryParams, datacenter)
-			queryParams = append(queryParams, count)
+			queryStr = append(queryStr, fmt.Sprintf(", '%s' : %d", datacenter, count))
 		}
 		queryStr = append(queryStr, " }")
 	}
-	queryStr = append(queryStr, " AND DURABLE_WRITES = ?")
-	queryParams = append(queryParams, d.Get("durable_writes").(bool))
+	queryStr = append(queryStr, fmt.Sprintf(" AND DURABLE_WRITES = %t", d.Get("durable_writes").(bool)))
+	//queryParams = append(queryParams, d.Get("durable_writes").(bool))
 
-	return strings.Join(queryStr, ""), queryParams
+	return strings.Join(queryStr, "") // , queryParams
 }
