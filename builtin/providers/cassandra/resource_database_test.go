@@ -21,7 +21,7 @@ func TestSimpleReplicationDatabase(t *testing.T) {
 			resource.TestStep{
 				Config: testAccDatabaseConfig,
 				Check: resource.ComposeTestCheckFunc(
-					checkKeyspaceExists("terraform-test", &keyspaceDesc),
+					checkKeyspaceExists("terraformTest", &keyspaceDesc),
 					checkKeyspaceProperties(keyspaceDesc, "'replication_factor': '2'"),
 					resource.TestCheckResourceAttr(
 						"cassandra_keyspace.test", "name", "terraformTest",
@@ -31,6 +31,26 @@ func TestSimpleReplicationDatabase(t *testing.T) {
 					),
 					resource.TestCheckResourceAttr(
 						"cassandra_keyspace.test", "replication_class", ReplicationStrategySimple,
+					),
+				),
+			},
+		},
+	})
+}
+
+func TestAlterNetworkReplicationDatabase(t *testing.T) {
+	var keyspaceDesc string
+
+	resource.Test(t, resource.TestCase{
+		PreCheck:  func() { testAccPreCheck(t) },
+		Providers: testAccProviders,
+		Steps: []resource.TestStep{
+			resource.TestStep{
+				Config: testAccDatabaseConfig,
+				Check: resource.ComposeTestCheckFunc(
+					checkKeyspaceExists("terraformTest", &keyspaceDesc),
+					resource.TestCheckResourceAttr(
+						"cassandra_keyspace.test", "replication_class", ReplicationStrategyNetworkTopology,
 					),
 				),
 			},
@@ -74,4 +94,14 @@ resource "cassandra_keyspace" "test" {
 }
 
 `
+	testNetworkTopologyConfig = `
+resource "cassandra_keyspace" "test" {
+    name = "terraformTest"
+    durable_writes = 1
+    replication_class = "` + ReplicationStrategyNetworkTopology + `"
+    datacenters = { "DC0" : 1, "DC1" : 2 }
+}
+
+`
+
 )
