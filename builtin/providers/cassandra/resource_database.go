@@ -137,7 +137,7 @@ func DeleteKeyspace(d *schema.ResourceData, meta interface{}) error {
 
 func createKeyspaceQuery(d *schema.ResourceData) (string, []interface{}) {
 	name := d.Get("name").(string)
-	return keyspaceQueryFactory("CREATE KEYSPACE IF NOT EXIST ?", name, d)
+	return keyspaceQueryFactory("CREATE KEYSPACE IF NOT EXISTS ?", name, d)
 
 }
 
