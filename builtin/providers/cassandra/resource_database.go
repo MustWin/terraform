@@ -164,7 +164,7 @@ func keyspaceQueryFactory(queryStart string, d *schema.ResourceData) string {
 	case ReplicationStrategyNetworkTopology:
 		datacenters := d.Get("datacenters").(map[string]interface{})
 		for datacenter, count := range datacenters {
-			queryStr = append(queryStr, fmt.Sprintf(", '%s' : %d", datacenter, count))
+			queryStr = append(queryStr, fmt.Sprintf(", '%s' : %s", datacenter, count))
 		}
 		queryStr = append(queryStr, " }")
 	}

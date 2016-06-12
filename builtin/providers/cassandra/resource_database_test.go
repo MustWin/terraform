@@ -45,7 +45,7 @@ func TestSimpleReplicationDatabase(t *testing.T) {
 	})
 }
 
-func TestAlterNetworkReplicationDatabase(t *testing.T) {
+func TestAlterSimpleReplicationKeyspace(t *testing.T) {
 	var keyspaceMeta gocql.KeyspaceMetadata
 
 	resource.Test(t, resource.TestCase{
@@ -74,6 +74,45 @@ func TestAlterNetworkReplicationDatabase(t *testing.T) {
 						DurableWrites:   false,
 						StrategyClass:   ReplicationStrategySimple,
 						StrategyOptions: map[string]interface{}{"replication_factor": "3"},
+					}),
+				),
+			},
+		},
+	})
+}
+
+func TestAlterNetworkReplicationKeyspace(t *testing.T) {
+	var keyspaceMeta gocql.KeyspaceMetadata
+
+	resource.Test(t, resource.TestCase{
+		PreCheck:     func() { testAccPreCheck(t) },
+		Providers:    testAccProviders,
+		CheckDestroy: testAccCheckKeyspaceDestroy,
+		Steps: []resource.TestStep{
+			resource.TestStep{
+				Config: testAccSimpleConfig,
+				Check: resource.ComposeTestCheckFunc(
+					checkKeyspaceExists(testAccSimpleConfigName, &keyspaceMeta),
+					checkKeyspaceProperties(&keyspaceMeta, gocql.KeyspaceMetadata{
+						Name:            testAccSimpleConfigName,
+						DurableWrites:   true,
+						StrategyClass:   ReplicationStrategySimple,
+						StrategyOptions: map[string]interface{}{"replication_factor": "2"},
+					}),
+				),
+			},
+			resource.TestStep{
+				Config: testNetworkTopologyConfig,
+				Check: resource.ComposeTestCheckFunc(
+					checkKeyspaceExists(testAccSimpleConfigName, &keyspaceMeta),
+					checkKeyspaceProperties(&keyspaceMeta, gocql.KeyspaceMetadata{
+						Name:          testAccSimpleConfigName,
+						DurableWrites: false,
+						StrategyClass: ReplicationStrategyNetworkTopology,
+						StrategyOptions: map[string]interface{}{"datacenters": map[string]int{
+							"dc1": 2,
+							"dc2": 1,
+						}},
 					}),
 				),
 			},
@@ -184,7 +223,10 @@ resource "cassandra_keyspace" "test" {
     name = "` + testAccSimpleConfigName + `"
     durable_writes = false
     replication_class = "` + ReplicationStrategyNetworkTopology + `"
-    datacenters = { 'DC0' : 1, 'DC1' : 2 }
+    datacenters {
+    	dc1 = 2
+    	dc2 = 1
+    }
 }
 
 `
