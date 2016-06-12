@@ -62,7 +62,6 @@ func CreateKeyspace(d *schema.ResourceData, meta interface{}) error {
 	conn := meta.(*gocql.Session)
 	name := d.Get("name").(string)
 	queryStr, queryParams := createKeyspaceQuery(d)
-
 	err := conn.Query(queryStr, queryParams).Exec()
 
 	if err != nil {
@@ -161,7 +160,7 @@ func keyspaceQueryFactory(queryStart string, name string, d *schema.ResourceData
 
 	switch replicationClass {
 	case ReplicationStrategySimple:
-		replicationFactor := d.Get("replication_factor").(string)
+		replicationFactor := d.Get("replication_factor").(int)
 		queryStr = append(queryStr, ", replication_factor: ? }")
 		queryParams = append(queryParams, replicationFactor)
 	case ReplicationStrategyNetworkTopology:

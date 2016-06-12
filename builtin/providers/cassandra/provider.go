@@ -37,6 +37,11 @@ func Provider() terraform.ResourceProvider {
 				Optional:    true,
 				DefaultFunc: schema.EnvDefaultFunc("CASSANDRA_PASSWORD", ""),
 			},
+			"proto_version": &schema.Schema{
+				Type:        schema.TypeInt,
+				Optional:    true,
+				DefaultFunc: schema.EnvDefaultFunc("CASSANDRA_PROTO_VERSION", 3),
+			},
 		},
 
 		ConfigureFunc: Configure,
@@ -55,7 +60,7 @@ func Configure(d *schema.ResourceData) (interface{}, error) {
 	}
 
 	cluster := gocql.NewCluster(hostPort)
-	cluster.ProtoVersion = 1
+	cluster.ProtoVersion = d.Get("proto_version").(int)
 	cluster.Keyspace = "system"
 
 	session, err := cluster.CreateSession()
