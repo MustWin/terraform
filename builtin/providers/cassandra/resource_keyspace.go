@@ -2,10 +2,10 @@ package cassandra
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/gocql/gocql"
 	"github.com/hashicorp/terraform/helper/schema"
-	"strings"
 )
 
 const (
@@ -42,7 +42,7 @@ func ResourceKeyspace() *schema.Resource {
 			"replication_factor": &schema.Schema{
 				Type:     schema.TypeInt,
 				Optional: true,
-				ForceNew: false, // TODO: add an alter command
+				ForceNew: false,
 			},
 			// Required if replication_class == "NetworkTopologyStrategy"
 			"datacenters": &schema.Schema{
@@ -55,15 +55,15 @@ func ResourceKeyspace() *schema.Resource {
 }
 
 func CreateKeyspace(d *schema.ResourceData, meta interface{}) error {
-	/* err := replicationValidations(d)
+	err := replicationValidations(d)
 	if err != nil {
-		return nil
-	} */
+		return err
+	}
 
 	conn := meta.(*gocql.Session)
 	name := d.Get("name").(string)
 	queryStr := createKeyspaceQuery(d)
-	err := conn.Query(queryStr).Exec()
+	err = conn.Query(queryStr).Exec()
 
 	if err != nil {
 		return err
@@ -99,14 +99,14 @@ func ReadKeyspace(d *schema.ResourceData, meta interface{}) error {
 }
 
 func UpdateKeyspace(d *schema.ResourceData, meta interface{}) error {
-	/*err := replicationValidations(d)
+	err := replicationValidations(d)
 	if err != nil {
-		return nil
-	} */
+		return err
+	}
 
 	conn := meta.(*gocql.Session)
 	queryStr := alterKeyspaceQuery(d)
-	err := conn.Query(queryStr).Exec()
+	err = conn.Query(queryStr).Exec()
 
 	if err != nil {
 		return err
@@ -148,20 +148,17 @@ func alterKeyspaceQuery(d *schema.ResourceData) string {
 
 func keyspaceQueryFactory(queryStart string, d *schema.ResourceData) string {
 	queryStr := []string{}
-	// queryParams := make([]interface{}, 0)
 
 	queryStr = append(queryStr, queryStart)
 	queryStr = append(queryStr, " WITH REPLICATION = ")
 
 	replicationClass := d.Get("replication_class").(string)
 	queryStr = append(queryStr, fmt.Sprintf("{ 'class' : '%s'", replicationClass))
-	// queryParams = append(queryParams, replicationClass)
 
 	switch replicationClass {
 	case ReplicationStrategySimple:
 		replicationFactor := d.Get("replication_factor").(int)
 		queryStr = append(queryStr, fmt.Sprintf(", 'replication_factor' : %d }", replicationFactor))
-		//queryParams = append(queryParams, replicationFactor)
 	case ReplicationStrategyNetworkTopology:
 		datacenters := d.Get("datacenters").(map[string]interface{})
 		for datacenter, count := range datacenters {
@@ -170,16 +167,15 @@ func keyspaceQueryFactory(queryStart string, d *schema.ResourceData) string {
 		queryStr = append(queryStr, " }")
 	}
 	queryStr = append(queryStr, fmt.Sprintf(" AND DURABLE_WRITES = %t", d.Get("durable_writes").(bool)))
-	//queryParams = append(queryParams, d.Get("durable_writes").(bool))
 
 	return strings.Join(queryStr, "") // , queryParams
 }
 
 func replicationValidations(d *schema.ResourceData) error {
 	replicationClass := d.Get("replication_class").(string)
-	if replicationClass == ReplicationStrategySimple && d.Get("replication_factor") == nil {
+	if replicationClass == ReplicationStrategySimple && d.Get("replication_factor").(int) == 0 {
 		return fmt.Errorf("replication_class of %s must set replication_factor", ReplicationStrategySimple)
-	} else if replicationClass == ReplicationStrategyNetworkTopology && d.Get("datacenters") == nil {
+	} else if replicationClass == ReplicationStrategyNetworkTopology && len(d.Get("datacenters").(map[string]interface{})) == 0 {
 		return fmt.Errorf("replication_class of %s require a list of datacenters", ReplicationStrategyNetworkTopology)
 	}
 

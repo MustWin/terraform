@@ -8,6 +8,7 @@ import (
 	"github.com/gocql/gocql"
 	"github.com/hashicorp/terraform/helper/schema"
 	"github.com/hashicorp/terraform/terraform"
+	"time"
 )
 
 var quoteReplacer = strings.NewReplacer(`"`, `\"`)
@@ -62,6 +63,7 @@ func Configure(d *schema.ResourceData) (interface{}, error) {
 	cluster := gocql.NewCluster(hostPort)
 	cluster.ProtoVersion = d.Get("proto_version").(int)
 	cluster.Keyspace = "system"
+	cluster.Timeout = time.Second * time.Duration(3)
 
 	session, err := cluster.CreateSession()
 	if err != nil {

@@ -5,14 +5,14 @@ import (
 	"log"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/gocql/gocql"
 	"github.com/hashicorp/terraform/helper/resource"
 	"github.com/hashicorp/terraform/terraform"
-	"time"
 )
 
-func TestSimpleReplicationDatabase(t *testing.T) {
+func TestSimpleReplicationKeyspace(t *testing.T) {
 	var keyspaceMeta gocql.KeyspaceMetadata
 
 	resource.Test(t, resource.TestCase{
@@ -34,7 +34,7 @@ func TestSimpleReplicationDatabase(t *testing.T) {
 						"cassandra_keyspace.test", "name", testAccSimpleConfigName,
 					),
 					resource.TestCheckResourceAttr(
-						"cassandra_keyspace.test", "durable_writes", "true", // TODO: This should fail, why doesn't it?
+						"cassandra_keyspace.test", "durable_writes", "true",
 					),
 					resource.TestCheckResourceAttr(
 						"cassandra_keyspace.test", "replication_class", ReplicationStrategySimple,
@@ -117,6 +117,27 @@ func TestAlterNetworkReplicationKeyspace(t *testing.T) {
 	})
 }
 
+/* //TODO: How do we test a failing configuration?
+func TestInvalidCreate(t *testing.T) {
+	var keyspaceMeta gocql.KeyspaceMetadata
+
+	resource.Test(t, resource.TestCase{
+		PreCheck:     func() { testAccPreCheck(t) },
+		Providers:    testAccProviders,
+		CheckDestroy: testAccCheckKeyspaceDestroy,
+		Steps: []resource.TestStep{
+			resource.TestStep{
+				Config: testInvalidConfig,
+				Check: resource.ComposeTestCheckFunc(
+					checkKeyspaceExists(testAccSimpleConfigName, &keyspaceMeta),
+				),
+			},
+		},
+	})
+
+}
+*/
+
 func keyspaceExists(name string) (*gocql.KeyspaceMetadata, error) {
 	conn := testAccProvider.Meta().(*gocql.Session)
 	return conn.KeyspaceMetadata(name)
@@ -150,11 +171,9 @@ func checkKeyspaceProperties(actualMeta *gocql.KeyspaceMetadata, expectedMeta go
 			return fmt.Errorf("StrategyClass %s does not match expected %s", actualMeta.StrategyClass, expectedMeta.StrategyClass)
 		}
 		for key, _ := range expectedMeta.StrategyOptions {
-			fmt.Println("logging StrategyOptions", key)
 			if key == "class" { // Already checked
 				continue
 			}
-			fmt.Println("logging value", expectedMeta.StrategyOptions[key], actualMeta.StrategyOptions[key])
 			if expectedMeta.StrategyOptions[key] != actualMeta.StrategyOptions[key] {
 				return fmt.Errorf("Strategy options %v did not match expected string: `%v`",
 					actualMeta.StrategyOptions[key],
@@ -226,6 +245,15 @@ resource "cassandra_keyspace" "test" {
     	dc1 = 2
     	dc2 = 1
     }
+}
+
+`
+	testInvalidConfig = `
+
+resource "cassandra_keyspace" "test" {
+    name = "` + testAccSimpleConfigName + `"
+    durable_writes = false
+    replication_class = "` + ReplicationStrategySimple + `"
 }
 
 `
