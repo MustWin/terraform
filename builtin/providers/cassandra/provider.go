@@ -67,7 +67,6 @@ func Configure(d *schema.ResourceData) (interface{}, error) {
 
 	username := d.Get("username").(string)
 	if username != "" {
-		fmt.Println("Creating Authenticator with username and password", username, d.Get("password").(string))
 		cluster.Authenticator = gocql.PasswordAuthenticator{
 			Username: username,
 			Password: d.Get("password").(string),
